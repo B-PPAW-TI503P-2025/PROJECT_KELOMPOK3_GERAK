@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>User Dashboard - Motion Monitoring</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <style>
+    :root {
+      --bg-body: #f1f5f9;
+      --card-bg: #ffffff;
+      --primary: #0f172a;
+      --accent: #0284c7;
+      --success: #10b981;
+      --danger: #ef4444;
+      --text-main: #1e293b;
+    }
+
+    body {
+      background-color: var(--bg-body);
+      font-family: 'Inter', sans-serif;
+      color: var(--text-main);
+      padding-bottom: 50px;
+    }
+
+    .header-section {
+      background: var(--card-bg);
+      padding: 1rem 0;
+      border-bottom: 1px solid #e2e8f0;
+      margin-bottom: 2rem;
+    }
+
+    .glass-card {
+      background: var(--card-bg);
+      border-radius: 1.5rem;
+      padding: 1.5rem;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+      transition: all 0.3s ease;
+    }
+
+    .system-off {
+      opacity: 0.5;
+      filter: grayscale(1);
+      pointer-events: none;
+    }
+
+    .stat-card {
+      padding: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .badge-live {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #fee2e2;
+      color: var(--danger);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      animation: pulse 2s infinite;
+    }
+
+    .badge-disabled {
+      background: #e2e8f0;
+      color: #64748b;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.6; }
+      100% { opacity: 1; }
+    }
+
+    /* Styling Tabel Riwayat */
+    .table-container {
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    
+    .table thead th {
+      background: #f8fafc;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      border-bottom: 2px solid #e2e8f0;
+    }
+  </style>
+</head>
+
+<body>
+
+<header class="header-section">
+  <div class="container d-flex justify-content-between align-items-center">
+    <div class="d-flex align-items-center gap-2">
+      <div class="bg-primary text-white p-2 rounded-3"><i data-lucide="activity" size="20"></i></div>
+      <h5 class="mb-0 fw-bold">IoT Dashboard User</h5>
+    </div>
+    <button class="btn btn-outline-danger btn-sm rounded-3 px-3 fw-600" onclick="logout()">Keluar</button>
+  </div>
+</header>
+
+<div class="container">
+  <div class="row g-4">
+    <div class="col-md-4">
+      <div id="cardStatus" class="glass-card stat-card mb-4">
+        <div id="statusIconBg" class="p-3 bg-success bg-opacity-10 text-success rounded-3"><i id="statusIcon" data-lucide="shield-check"></i></div>
+        <div>
+          <p class="text-muted small mb-0 fw-bold">STATUS SISTEM</p>
+          <h5 id="sensorStatus" class="fw-bold mb-0">Sinkronisasi...</h5>
+        </div>
+      </div>
+
+      <div id="cardUpdate" class="glass-card stat-card">
+        <div class="p-3 bg-info bg-opacity-10 text-info rounded-3"><i data-lucide="clock"></i></div>
+        <div>
+          <p class="text-muted small mb-0 fw-bold">DETEKSI TERAKHIR</p>
+          <h6 id="lastMotion" class="fw-bold mb-0">-</h6>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-8">
+      <div id="cardChart" class="glass-card">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <div>
+            <h5 class="fw-bold mb-1">Riwayat Aktivitas Terbaru</h5>
+            <p id="chartDesc" class="text-muted small mb-0">Monitoring Real-time</p>
+          </div>
+          <div id="liveBadge" class="badge-live">
+            <span id="badgeDot" class="rounded-circle bg-danger" style="width: 8px; height: 8px;"></span>
+            <span id="badgeText">LIVE MONITORING</span>
+          </div>
+        </div>
+        
+        <div class="table-container">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>Waktu</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="historyTableBody">
+              </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+lucide.createIcons();
+
+function logout() {
+  localStorage.clear();
+  window.location.href = 'login.html';
+}
+
+function formatFullDate(dateString) {
+    if(!dateString) return "-";
+    return new Date(dateString).toLocaleString('id-ID');
+}
+
+async function syncWithAdmin() {
+  try {
+    const res = await fetch('/api/motion/latest').then(r => r.json());
+    const isSystemActive = res.system_active === true; 
+
+    const statusEl = document.getElementById('sensorStatus');
+    const badge = document.getElementById('liveBadge');
+
+    if (!isSystemActive) {
+      statusEl.innerText = 'SISTEM NONAKTIF';
+      badge.className = 'badge-live badge-disabled';
+      document.getElementById('badgeText').innerText = 'OFF';
+      document.getElementById('cardStatus').classList.add('system-off');
+      document.getElementById('cardChart').classList.add('system-off');
+    } else {
+      document.getElementById('cardStatus').classList.remove('system-off');
+      document.getElementById('cardChart').classList.remove('system-off');
+      badge.className = 'badge-live';
+      document.getElementById('badgeText').innerText = 'LIVE MONITORING';
+      statusEl.innerText = res.motion ? 'TERDETEKSI' : 'AREA AMAN';
+      document.getElementById('lastMotion').innerText = formatFullDate(res.created_at);
+      updateHistoryTable(); // Update tabel riwayat
+    }
+    lucide.createIcons();
+  } catch(e) {}
+}
+
+async function updateHistoryTable() {
+  try {
+    const allLogs = await fetch('/api/motion').then(r => r.json());
+    if (!allLogs || allLogs.length === 0) return;
+
+    // Ambil 10 data terbaru, urutkan dari yang paling baru di atas
+    const sortedData = allLogs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 10);
+    
+    const tableBody = document.getElementById('historyTableBody');
+    tableBody.innerHTML = ''; // Kosongkan tabel sebelum diisi ulang
+
+    sortedData.forEach((d) => {
+      const row = document.createElement('tr');
+      const statusBadge = d.motion 
+        ? '<span class="badge bg-danger">Terdeteksi</span>' 
+        : '<span class="badge bg-success">Aman</span>';
+      
+      row.innerHTML = `
+        <td class="small">${formatFullDate(d.created_at)}</td>
+        <td>${statusBadge}</td>
+      `;
+      tableBody.appendChild(row);
+    });
+  } catch (err) {
+    console.error("Gagal mengambil riwayat:", err);
+  }
+}
+
+syncWithAdmin();
+setInterval(syncWithAdmin, 3000); 
+</script>
+</body>
+</html>

@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Console - Motion Monitoring</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        :root {
+            --bg-body: #f8fafc;
+            --card-bg: #ffffff;
+            --admin-primary: #1e293b;
+            --accent-blue: #0ea5e9;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --text-main: #1e293b;
+        }
+
+        body {
+            background-color: var(--bg-body);
+            font-family: 'Inter', sans-serif;
+            color: var(--text-main);
+            padding-bottom: 50px;
+        }
+
+        .admin-nav {
+            background: var(--admin-primary);
+            padding: 1rem 0;
+            color: white;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .admin-card {
+            background: var(--card-bg);
+            border-radius: 1.5rem;
+            border: 1px solid #e2e8f0;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            height: 100%;
+            transition: all 0.2s;
+        }
+
+        .admin-card.disabled {
+            opacity: 0.5;
+            filter: grayscale(1);
+            pointer-events: none;
+        }
+
+        .icon-box {
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .stat-value {
+            font-size: 1.25rem;
+            font-weight: 800;
+            margin: 0;
+        }
+
+        .chart-section {
+            background: white;
+            border-radius: 2rem;
+            padding: 2rem;
+            border: 1px solid #e2e8f0;
+            margin-top: 2rem;
+        }
+
+        .form-switch .form-check-input {
+            width: 3.5em;
+            height: 1.7em;
+            cursor: pointer;
+        }
+
+        .btn-action {
+            background: var(--admin-primary);
+            color: white !important;
+            border-radius: 12px;
+            padding: 10px 24px;
+            font-weight: 600;
+            border: none;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-logout {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white;
+            border-radius: 10px;
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+    </style>
+</head>
+
+<body>
+
+<nav class="admin-nav">
+    <div class="container d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center gap-2">
+            <i data-lucide="shield-check" size="24"></i>
+            <h5 class="mb-0 fw-bold">Admin Console</h5>
+        </div>
+        <button class="btn-logout d-flex align-items-center gap-2" onclick="secureLogout()">
+            <i data-lucide="log-out" size="16"></i> Logout
+        </button>
+    </div>
+</nav>
+
+<div class="container">
+    <div class="row g-4 mb-4">
+        <div class="col-md-12">
+            <div class="admin-card d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="fw-bold mb-0">Control Center</h5>
+                    <p class="text-muted small mb-0">Status ini disinkronkan dengan Database & Session</p>
+                </div>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="toggleMonitoring" onchange="handleToggle()">
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="admin-card" id="card-esp">
+                <div class="icon-box bg-primary bg-opacity-10 text-primary"><i data-lucide="cpu"></i></div>
+                <p class="stat-label">Koneksi ESP32</p>
+                <h4 id="espStatus" class="stat-value text-primary">Memuat...</h4>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="admin-card" id="card-motion">
+                <div id="motionBox" class="icon-box bg-success bg-opacity-10 text-success"><i id="motionIcon" data-lucide="activity"></i></div>
+                <p class="stat-label">Status Deteksi</p>
+                <h4 id="motionStatus" class="stat-value">Memuat...</h4>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="admin-card" id="card-total">
+                <div class="icon-box bg-info bg-opacity-10 text-info"><i data-lucide="bar-chart"></i></div>
+                <p class="stat-label">Gerakan Hari Ini</p>
+                <h4 id="totalToday" class="stat-value text-info">0</h4>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="admin-card" id="card-time">
+                <div class="icon-box bg-warning bg-opacity-10 text-warning"><i data-lucide="clock"></i></div>
+                <p class="stat-label">Update Terakhir</p>
+                <p id="lastTime" class="fw-bold mb-0" style="font-size: 0.8rem; line-height: 1.4;">-</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="chart-section" id="section-chart">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h5 class="fw-bold mb-0">Grafik Deteksi Spike</h5>
+                <p class="text-muted small">Real-time database visualization</p>
+            </div>
+            <a href="history.html" class="btn-action">
+                <i data-lucide="history" size="18"></i> Lihat Riwayat Lengkap
+            </a>
+        </div>
+        <div style="height: 350px;">
+            <canvas id="adminChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<script>
+lucide.createIcons();
+
+if (localStorage.getItem('role') !== 'admin') {
+    window.location.href = 'login.html';
+}
+
+function secureLogout() {
+    localStorage.removeItem('role');
+    localStorage.removeItem('username');
+    // monitoringStatus di LocalStorage tidak dihapus agar browser ingat status terakhir
+    window.location.href = 'login.html';
+}
+
+let isMonitoringActive = false;
+const chartCtx = document.getElementById('adminChart').getContext('2d');
+let adminChart;
+
+async function initDashboard() {
+    try {
+        // Ambil status dari database
+        const res = await fetch('/api/motion/status').then(r => r.json());
+        const cachedStatus = localStorage.getItem('monitoringStatus');
+        
+        // Prioritaskan Database, gunakan LocalStorage jika database gagal dimuat
+        if (res.active !== undefined) {
+            isMonitoringActive = res.active;
+        } else {
+            isMonitoringActive = cachedStatus === 'true';
+        }
+        
+        const toggle = document.getElementById('toggleMonitoring');
+        toggle.checked = isMonitoringActive;
+        
+        updateUIState();
+    } catch (e) {
+        isMonitoringActive = localStorage.getItem('monitoringStatus') === 'true';
+        document.getElementById('toggleMonitoring').checked = isMonitoringActive;
+        updateUIState();
+    }
+}
+
+async function handleToggle() {
+    const toggle = document.getElementById('toggleMonitoring');
+    isMonitoringActive = toggle.checked;
+
+    // Simpan ke LocalStorage
+    localStorage.setItem('monitoringStatus', isMonitoringActive);
+
+    // Kirim ke Backend
+    try {
+        await fetch('/api/motion/status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ active: isMonitoringActive })
+        });
+    } catch (e) { console.error("Update database gagal"); }
+
+    updateUIState();
+}
+
+function updateUIState() {
+    const cards = ['card-esp', 'card-motion', 'card-total', 'card-time', 'section-chart'];
+    if (!isMonitoringActive) {
+        cards.forEach(id => document.getElementById(id).classList.add('disabled'));
+        document.getElementById('motionStatus').innerText = "SISTEM MATI";
+        document.getElementById('espStatus').innerText = "OFFLINE";
+        if (adminChart) { adminChart.destroy(); adminChart = null; }
+    } else {
+        cards.forEach(id => document.getElementById(id).classList.remove('disabled'));
+        loadAdminData(); 
+    }
+}
+
+async function loadAdminData() {
+    if (!isMonitoringActive) return;
+    try {
+        const latest = await fetch('/api/motion/latest').then(r => r.json());
+        const stats = await fetch('/api/motion/stats/hourly').then(r => r.json());
+        const allLogs = await fetch('/api/motion').then(r => r.json());
+
+        document.getElementById('espStatus').innerText = latest ? 'CONNECTED' : 'DISCONNECTED';
+        const mStatus = document.getElementById('motionStatus');
+        if (latest.motion) {
+            mStatus.innerText = 'TERDETEKSI';
+            mStatus.className = 'stat-value text-danger';
+        } else {
+            mStatus.innerText = 'AREA AMAN';
+            mStatus.className = 'stat-value text-success';
+        }
+
+        document.getElementById('lastTime').innerText = new Date(latest.created_at).toLocaleString('id-ID');
+        document.getElementById('totalToday').innerText = stats.reduce((s, d) => s + d.total, 0);
+
+        const sortedData = allLogs.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)).slice(-10);
+        const labels = [], data = [];
+        sortedData.forEach((d) => {
+            const time = new Date(d.created_at);
+            if (d.motion) { labels.push(new Date(time.getTime() - 2000)); data.push(0); }
+            labels.push(time); data.push(d.motion ? 1 : 0);
+            if (d.motion) { labels.push(new Date(time.getTime() + 2000)); data.push(0); }
+        });
+        renderChart(labels, data);
+        lucide.createIcons();
+    } catch (err) {}
+}
+
+function renderChart(labels, data) {
+    if (adminChart) adminChart.destroy();
+    adminChart = new Chart(chartCtx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                borderColor: '#0ea5e9',
+                backgroundColor: 'rgba(14, 165, 233, 0.2)',
+                fill: true,
+                tension: 0.4,
+                pointRadius: 5
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, max: 1.5, ticks: { callback: (v) => v === 1 ? 'ADA' : (v === 0 ? 'TIDAK' : '') } },
+                x: { ticks: { callback: function(v) { return new Date(this.getLabelForValue(v)).toLocaleTimeString(); } } }
+            },
+            animation: false
+        }
+    });
+}
+
+initDashboard();
+setInterval(() => { if (isMonitoringActive) loadAdminData(); }, 3000);
+</script>
+</body>
+</html>
